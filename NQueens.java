@@ -1,17 +1,32 @@
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 
 public class NQueens {
 
     public static void main(String[] args) {
+        System.out.println("Steepest Ascent Hill Climbing Multiple");
+        runSteepestMultiple(10000, 8);
+        System.out.println("Steepest Ascent Hill Climbing Multiple");
+        runSteepestMultiple(10000, 12);
+        System.out.println("Steepest Ascent Hill Climbing Multiple");
         runSteepestMultiple(10000, 16);
+
+        System.out.println("Min Conflicts Algorithm Multiple");
+        runMinConflictsMultiple(10000, 8, 10000);
+        System.out.println("Min Conflicts Algorithm Multiple");
+        runMinConflictsMultiple(10000, 12, 10000);
+        System.out.println("Min Conflicts Algorithm Multiple");
+        runMinConflictsMultiple(10000, 16, 10000);
+
     }
 
     // Steepest Hill-Climbing Alg
-    private static int[] steepestHillClimbing(int[] board) {
+    private static Response steepestHillClimbing(int[] board) {
         int[] curr = board;
         int[] bestNeighbor = curr;
         int bestNeighborEval = evalQueens(curr);
+        int steps = 0;
         while (67 == 67) {
             int[][] allNeighbors = produceNeighbors(bestNeighbor); // holds an array of all neighbors      
             List<int[]> highestNeighbors = new ArrayList<>(); // holds a list of best heuristic neighbors
@@ -28,7 +43,7 @@ public class NQueens {
                     highestNeighbors.add(neighbor);
                 }
             }
-
+            steps++;
             // if highest neighbors heuristic is the same, then return
             if (highestNeighbors.isEmpty()) return null;
 
@@ -40,8 +55,67 @@ public class NQueens {
             }
 
             // if new best eval == number of queens
-            if (bestNeighborEval == 0) return bestNeighbor;
+            if (bestNeighborEval == 0) return new Response(bestNeighbor, steps);
         }
+    }
+
+    // Min-Conflicts Alg
+    private static Response minConflictsAlg(int[] board, int maxSteps) {
+        // get frequency arrays
+        int[] rows = new int[board.length];
+        int[] topLeftDiagonals = new int[board.length * 2];
+        int[] bottomLeftDiagonals = new int[board.length * 2];
+
+        for (int i = 0; i < board.length; i++) {
+            int row = board[i];
+            rows[row]++;
+            topLeftDiagonals[row - i + board.length - 1]++;
+            bottomLeftDiagonals[row + i]++;
+        }
+
+        int steps = 0;
+        while (maxSteps >= 0) {
+            // check if current state is done
+            if (evalQueens(board) == 0) {
+                return new Response(board, steps);
+            }
+
+            // get a queen to move
+            List<Integer> conflictingQueens = getConflictingQueens(board);
+            int randIdx = (int) (Math.random() * conflictingQueens.size());
+            int queenToMove = conflictingQueens.get(randIdx);
+
+            // move a queen
+            int prevRow = board[queenToMove];
+            rows[prevRow]--;
+            topLeftDiagonals[prevRow - queenToMove + board.length - 1]--;
+            bottomLeftDiagonals[prevRow + queenToMove]--;
+
+            List<Integer> leastConflictingRows = new ArrayList<>();
+            int leastConflicts = board.length + 1;
+            for (int i = 0; i < board.length; i++) {
+                int currConflicts = rows[i] + topLeftDiagonals[i - queenToMove + board.length - 1] + bottomLeftDiagonals[i + queenToMove];
+                if (currConflicts < leastConflicts) {
+                    leastConflictingRows.clear();
+                    leastConflictingRows.add(i);
+                    leastConflicts = currConflicts;
+                } else if (currConflicts == leastConflicts) {
+                    leastConflictingRows.add(i);
+                }
+            }
+
+            randIdx = (int) (Math.random() * leastConflictingRows.size());
+            int chosenRow = leastConflictingRows.get(randIdx);
+            board[queenToMove] = chosenRow;
+
+            rows[chosenRow]++;
+            topLeftDiagonals[chosenRow - queenToMove + board.length - 1]++;
+            bottomLeftDiagonals[chosenRow + queenToMove]++;
+
+            maxSteps--;
+            steps++;
+        }
+        return null;
     }
 
     // Evaluate Correct Queens
@@ -78,22 +152,77 @@ public class NQueens {
         return neighbors;
     }
 
-    private static void runSteepestMultiple(int iterations, int queens) {
-        int successes = 0;
-        for (int i = 0; i < iterations; i++) {
-            int[] board = generateRandomBoard(queens);
-            int[] solution = steepestHillClimbing(board);
-            if (solution == null) {
-                System.out.println("Steepest Hill Climb has failed!");
-            } else {
-                System.out.println("Solution:");
-                // printCurrentBoard(solution);
-                successes++;
-            }
+    // check which queens are in conflict
+    private static List<Integer> getConflictingQueens(int[] board) {
+        List<Integer> conflicting = new ArrayList<>();
+        for (int i = 0; i < board.length; i++) {
+            if (countConflicts(board, i, board[i]) > 1) conflicting.add(i);
         }
 
+        return conflicting;
+    }
+
+    // count conflicts
+    private static int countConflicts(int[] board, int row, int col) {
+        int conflicts = 0;
+        for (int i = 0; i < board.length; i++) {
+            if (board[i] == row || Math.abs(col - board[i]) == Math.abs(row - i)) conflicts++;
+        }
+
+        return conflicts;
+    }
+
+    // count conflicts O(n)
+    private static int countConflictsOptimal(int row, int col, int boardLength, int[] rows, int[] tlDiags, int[] blDiags) {
+        int count = 0;
+        count += rows[row];
+        count += tlDiags[row - col + boardLength -1];
+        count += blDiags[row + col];
+
+        return count;
+    }
+
+    // run steepest ascent a custom number of times
+    private static void runSteepestMultiple(int iterations, int queens) {
+        int successes = 0;
+        int totalSteps = 0;
+        long startTime = System.nanoTime();
+        for (int i = 0; i < iterations; i++) {
+            int[] board = generateRandomBoard(queens);
+            Response solution = steepestHillClimbing(board);
+            if (solution != null) {
+                successes++;
+                totalSteps += solution.getSteps();
+            }
+        }
+        long time = System.nanoTime() - startTime;
+
+        double ms = time / 1000000.0;
+        double as = (double) totalSteps / (double) successes;
         double sr = ((double) successes / (double) iterations) * 100;
-        System.out.print("Board Size: " + queens + "\nTotal Iterations: " + iterations + "\nSuccesses: " + successes + "\nSuccess Rate: " + String.format("%.2f", sr) + "%");
+        System.out.print("Board Size: " + queens + "\nTotal Iterations: " + iterations + "\nSuccesses: " + successes + 
+            "\nSuccess Rate: " + String.format("%.2f", sr) + "%\nAverage Steps: " + String.format("%.2f", as) + "\nTime Taken (in ms): " + ms + "\n\n");
+    }
+
+    // run min conflicts a custom number of times
+    private static void runMinConflictsMultiple(int iterations, int queens, int maxSteps) {
+        int successes = 0;
+        int totalSteps = 0;
+        long startTime = System.nanoTime();
+        for (int i = 0; i < iterations; i++) {
+            int[] board = generateRandomBoard(queens);
+            Response solution = minConflictsAlg(board, maxSteps);
+            if (solution != null) {
+                successes++;
+                totalSteps += solution.getSteps();
+            }
+        }
+        long time = System.nanoTime() - startTime;
+        double ms = time / 1000000.0;
+        double as = (double) totalSteps / (double) successes;
+        double sr = ((double) successes / (double) iterations) * 100;
+        System.out.print("Board Size: " + queens + "\nTotal Iterations: " + iterations + "\nSuccesses: " + successes + 
+            "\nSuccess Rate: " + String.format("%.2f", sr) + "%\nAverage Steps: " + String.format("%.2f", as) + "\nTime Taken (in ms): " + ms + "\n\n");
     }
 
     // Generation Functions
@@ -130,5 +259,23 @@ public class NQueens {
         }
 
         return newBoard;
+    }
+
+    private static class Response {
+        private int[] board;
+        private int steps;
+
+        public Response(int[] board, int steps) {
+            this.board = board;
+            this.steps = steps;
+        }
+
+        public int[] getBoard() {
+            return this.board;
+        }
+
+        public int getSteps() {
+            return this.steps;
+        }
     }
 }
