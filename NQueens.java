@@ -19,14 +19,25 @@ public class NQueens {
         System.out.println("Min Conflicts Algorithm Multiple");
         runMinConflictsMultiple(10000, 16, 10000);
 
+        runOne(8, 1);
+        runOne(12, 1);
+        runOne(16, 1);
+        runOne(8, 2);
+        runOne(12, 2);
+        runOne(16, 2);
     }
 
     // Steepest Hill-Climbing Alg
     private static Response steepestHillClimbing(int[] board) {
+        long time = System.nanoTime();
         int[] curr = board;
         int[] bestNeighbor = curr;
         int bestNeighborEval = evalQueens(curr);
         int steps = 0;
+
+        if (evalQueens(board) == 0) {
+            return new Response(board, steps, System.nanoTime() - time);
+        }
         while (67 == 67) {
             int[][] allNeighbors = produceNeighbors(bestNeighbor); // holds an array of all neighbors      
             List<int[]> highestNeighbors = new ArrayList<>(); // holds a list of best heuristic neighbors
@@ -55,12 +66,13 @@ public class NQueens {
             }
 
             // if new best eval == number of queens
-            if (bestNeighborEval == 0) return new Response(bestNeighbor, steps);
+            if (bestNeighborEval == 0) return new Response(bestNeighbor, steps, System.nanoTime() - time);
         }
     }
 
     // Min-Conflicts Alg
     private static Response minConflictsAlg(int[] board, int maxSteps) {
+        long time = System.nanoTime();
         // get frequency arrays
         int[] rows = new int[board.length];
         int[] topLeftDiagonals = new int[board.length * 2];
@@ -77,7 +89,8 @@ public class NQueens {
         while (maxSteps >= 0) {
             // check if current state is done
             if (evalQueens(board) == 0) {
-                return new Response(board, steps);
+                long endTime = System.nanoTime() - time;
+                return new Response(board, steps, endTime);
             }
 
             // get a queen to move
@@ -172,57 +185,70 @@ public class NQueens {
         return conflicts;
     }
 
-    // count conflicts O(n)
-    private static int countConflictsOptimal(int row, int col, int boardLength, int[] rows, int[] tlDiags, int[] blDiags) {
-        int count = 0;
-        count += rows[row];
-        count += tlDiags[row - col + boardLength -1];
-        count += blDiags[row + col];
-
-        return count;
-    }
-
     // run steepest ascent a custom number of times
     private static void runSteepestMultiple(int iterations, int queens) {
         int successes = 0;
         int totalSteps = 0;
-        long startTime = System.nanoTime();
+        long at = 0;
         for (int i = 0; i < iterations; i++) {
             int[] board = generateRandomBoard(queens);
             Response solution = steepestHillClimbing(board);
             if (solution != null) {
                 successes++;
                 totalSteps += solution.getSteps();
+                at += solution.getTime();
             }
         }
-        long time = System.nanoTime() - startTime;
 
-        double ms = time / 1000000.0;
+        at /= successes;
+        double ms = at / 1000000.0;
         double as = (double) totalSteps / (double) successes;
         double sr = ((double) successes / (double) iterations) * 100;
         System.out.print("Board Size: " + queens + "\nTotal Iterations: " + iterations + "\nSuccesses: " + successes + 
-            "\nSuccess Rate: " + String.format("%.2f", sr) + "%\nAverage Steps: " + String.format("%.2f", as) + "\nTime Taken (in ms): " + ms + "\n\n");
+            "\nSuccess Rate: " + String.format("%.2f", sr) + "%\nAverage Steps: " + String.format("%.2f", as) + "\nAvg. Time Taken (in ms): " + ms + "\n\n");
     }
 
     // run min conflicts a custom number of times
     private static void runMinConflictsMultiple(int iterations, int queens, int maxSteps) {
         int successes = 0;
         int totalSteps = 0;
-        long startTime = System.nanoTime();
+        long at = 0;
         for (int i = 0; i < iterations; i++) {
             int[] board = generateRandomBoard(queens);
             Response solution = minConflictsAlg(board, maxSteps);
             if (solution != null) {
                 successes++;
                 totalSteps += solution.getSteps();
+                at += solution.getTime();
             }
         }
-        long time = System.nanoTime() - startTime;
-        double ms = time / 1000000.0;
+        at /= successes;
+        double ms = at / 1000000.0;
         double as = (double) totalSteps / (double) successes;
         double sr = ((double) successes / (double) iterations) * 100;
         System.out.print("Board Size: " + queens + "\nTotal Iterations: " + iterations + "\nSuccesses: " + successes + 
-            "\nSuccess Rate: " + String.format("%.2f", sr) + "%\nAverage Steps: " + String.format("%.2f", as) + "\nTime Taken (in ms): " + ms + "\n\n");
+            "\nSuccess Rate: " + String.format("%.2f", sr) + "%\nAverage Steps: " + String.format("%.2f", as) + "\nAvg. Time Taken (in ms): " + ms + "\n\n");
+    }
+
+    private static void runOne(int size, int algType) {
+        if (algType == 1) {
+            System.out.println("Steepest Ascent Hill Climbing, Size: " + size);
+        } else {
+            System.out.println("Min Conflicts, Size: " + size);
+        }
+        int[] board = null;
+        Response res = null;
+        while (res == null) {
+            board = generateRandomBoard(size);
+            if (algType == 1) {
+                res = steepestHillClimbing(board);
+            } else {
+                res = minConflictsAlg(board, 10000);
+            }
+        }
+        printCurrentBoard(board);
+        System.out.println("Solution:");
+        printCurrentBoard(res.getBoard());
     }
 
     // Generation Functions
@@ -264,10 +290,12 @@ public class NQueens {
     private static class Response {
         private int[] board;
         private int steps;
+        private long time;
 
-        public Response(int[] board, int steps) {
+        public Response(int[] board, int steps, long time) {
             this.board = board;
             this.steps = steps;
+            this.time = time;
         }
 
         public int[] getBoard() {
@@ -276,6 +304,10 @@ public class NQueens {
 
         public int getSteps() {
             return this.steps;
+        }
+
+        public long getTime() {
+            return this.time;
         }
     }
 }
